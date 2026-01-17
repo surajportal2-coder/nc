@@ -4,15 +4,14 @@ import threading
 import time
 import random
 import os
-from datetime import datetime
 
 app = Flask(__name__)
-app.secret_key = "sujal_hawk_rename_simple_2025"
+app.secret_key = "sujal_hawk_rename_fixed_2025"
 
 state = {"running": False, "logs": [], "start_time": None}
 cfg = {"sessionid": "", "thread_id": 0, "base_name": "", "delay": 60}
 
-# Tera original devices rotation (pehle wali script se copy kiya)
+# Undetected devices rotation (login success ke liye must)
 DEVICES = [
     {"phone_manufacturer": "Google", "phone_model": "Pixel 8 Pro", "android_version": 15, "android_release": "15.0.0", "app_version": "323.0.0.46.109"},
     {"phone_manufacturer": "Samsung", "phone_model": "SM-S928B", "android_version": 15, "android_release": "15.0.0", "app_version": "324.0.0.41.110"},
@@ -30,7 +29,7 @@ def rename_loop():
     cl = Client()
     cl.delay_range = [8, 30]
 
-    # Device rotation + user-agent set (login success ke liye must)
+    # Device rotation + user-agent (login success ke liye zaroori)
     device = random.choice(DEVICES)
     cl.set_device(device)
     cl.set_user_agent(f"Instagram {device['app_version']} Android (34/15.0.0; 480dpi; 1080x2340; {device['phone_manufacturer']}; {device['phone_model']}; raven; raven; en_US)")
@@ -44,8 +43,12 @@ def rename_loop():
 
     while state["running"]:
         try:
-            new_name = f"{cfg['base_name']}"  # simple name, no emoji, no time
-            cl.direct_thread_change_title(cfg["thread_id"], new_name)
+            new_name = cfg["base_name"]  # simple name, no extra text
+            # New working method (private request for group title change)
+            cl.private_request(
+                f"direct_v2/threads/{cfg['thread_id']}/update_title/",
+                data={"title": new_name}
+            )
             log(f"NAME CHANGED TO → {new_name}")
         except Exception as e:
             log(f"Name change failed → {str(e)[:50]} — retrying next cycle")
