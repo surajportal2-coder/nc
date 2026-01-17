@@ -4,6 +4,7 @@ import threading
 import time
 import random
 import os
+from datetime import datetime
 
 app = Flask(__name__)
 app.secret_key = "sujal_hawk_rename_fixed_2025"
@@ -11,7 +12,7 @@ app.secret_key = "sujal_hawk_rename_fixed_2025"
 state = {"running": False, "logs": [], "start_time": None}
 cfg = {"sessionid": "", "thread_id": 0, "base_name": "", "delay": 60}
 
-# Undetected devices rotation (login success ke liye must)
+# Devices rotation
 DEVICES = [
     {"phone_manufacturer": "Google", "phone_model": "Pixel 8 Pro", "android_version": 15, "android_release": "15.0.0", "app_version": "323.0.0.46.109"},
     {"phone_manufacturer": "Samsung", "phone_model": "SM-S928B", "android_version": 15, "android_release": "15.0.0", "app_version": "324.0.0.41.110"},
@@ -29,22 +30,25 @@ def rename_loop():
     cl = Client()
     cl.delay_range = [8, 30]
 
-    # Device rotation + user-agent (login success ke liye zaroori)
     device = random.choice(DEVICES)
     cl.set_device(device)
     cl.set_user_agent(f"Instagram {device['app_version']} Android (34/15.0.0; 480dpi; 1080x2340; {device['phone_manufacturer']}; {device['phone_model']}; raven; raven; en_US)")
 
-    try:
-        cl.login_by_sessionid(cfg["sessionid"])
-        log("LOGIN SUCCESS — NAME CHANGE LOOP STARTED")
-    except Exception as e:
-        log(f"LOGIN FAILED → {str(e)[:80]}")
-        return
-
+    logged_in = False
     while state["running"]:
+        if not logged_in:
+            try:
+                cl.login_by_sessionid(cfg["sessionid"])
+                log("LOGIN SUCCESS — NAME CHANGE LOOP STARTED")
+                logged_in = True
+            except Exception as e:
+                log(f"LOGIN FAILED → {str(e)[:80]} — STOPPING LOOP")
+                state["running"] = False
+                return
+
         try:
-            new_name = cfg["base_name"]  # simple name, no extra text
-            # New working method (private request for group title change)
+            new_name = cfg['base_name']  # simple name
+            # Private request for name change (fixes attribute error)
             cl.private_request(
                 f"direct_v2/threads/{cfg['thread_id']}/update_title/",
                 data={"title": new_name}
@@ -52,6 +56,9 @@ def rename_loop():
             log(f"NAME CHANGED TO → {new_name}")
         except Exception as e:
             log(f"Name change failed → {str(e)[:50]} — retrying next cycle")
+            if "login_required" in str(e).lower():
+                log("LOGIN REQUIRED — RELOGGING IN")
+                logged_in = False  # Trigger relogin next loop
 
         time.sleep(cfg["delay"])
 
